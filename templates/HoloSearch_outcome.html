@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<title>Hololive Schedule Search</title>
+		<style>
+			section{
+				display: grid;
+				gap: 10px;
+				grid-template-columns: repeat(4, 1fr);
+			}
+		</style>
+	</head>
+	<body>
+		<h1>Search Results</h1>
+		<h3>Found {{resultNo}} results</h3>
+		<section>
+			<h4>Title</h4>
+			<h4>Link</h4>
+			<h4>Time</h4>
+			<h4>Thumbnail</h4>
+			{% for stream in lists%}
+				<span>{{stream.title}}</span>
+				<a href="{{stream.url}}" target="_blank">Link</a>
+				<span>{{stream.time}}</span>
+				<img src="{{stream.thumb}}"/>
+			{% endfor %}
+		<section>
+	</body>
+</html>
+
+
