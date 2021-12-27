@@ -27,7 +27,7 @@ class stream:
         for tag in tag_sing:
             if tag in title.lower():
                 return title
-        if "Live" in title or "3D LIVE":
+        if "Live" in title or "3D LIVE" in title:
             return title
         try:
             for streamer in streamers[3:]:
