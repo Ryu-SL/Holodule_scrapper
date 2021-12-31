@@ -1,9 +1,8 @@
-from bs4.element import ResultSet
 import requests
 from bs4 import BeautifulSoup
 from flask import Flask, render_template
 import csv
-from datetime import date
+from datetime import datetime, timedelta
 
 
 # --------------search streams meeting criteria---------------
@@ -19,8 +18,8 @@ class stream:
             "https://yt3.ggpht.com/a/AGF-l79dHleIBmBtLP2TfcmFpIJjmH7fa8tfG1qTKg=s88-c-k-c0xffffffff-no-rj-mo": "sora",
             "https://yt3.ggpht.com/a/AGF-l7-xWfYjQX1VHU2i1BuIap0Ba3tR3T6w4dcCkA=s88-c-k-c0xffffffff-no-rj-mo": "luna",
         }
-        self.date_today = date.today().strftime("%m/%d")
-        self.date_stream = self.date_today
+        self.date_stream = "m/d"
+        self.date_count = 0
         self.tag_stream = "sing"
 
     @staticmethod
@@ -55,8 +54,8 @@ class stream:
             None
         return False
 
-    def get_title(self, url, streamers):
-        soup = self.make_soup(url)
+    def get_title(self, stream_url, streamers):
+        soup = self.make_soup(stream_url)
         title = soup.find("div", {"id": "watch7-content"}).find(
             "meta", {"itemprop": "name"}
         )
@@ -81,9 +80,25 @@ class stream:
         try:
             stream_date = soup.find("div", {"class": "holodule navbar-text"})
             self.date_stream = stream_date.string.replace(" ", "")[2:7]
+            self.date_count = self.date_count + 1
             return True
         except:
             return False
+
+    @staticmethod
+    def check_update(flag, results):
+        # flag = 0  # do not update db
+        if flag == 2:
+            # date became today, save current results
+            print("------------------updating csv")
+            db.update_db(results, flag)
+
+        elif flag == 3:
+            # date became future, save unarchived streams only
+            print("-----------------updating unarchived stream")
+            db.update_db(
+                [result for result in results if result["Tag"] == "unarchive"], flag
+            )
 
     def search_stream(self):
         results = []
@@ -93,24 +108,9 @@ class stream:
         )
         print("checking")
         stream_count = 0
-        flag = 0
         for container in containers:
             if stream.check_date(self, container):
-                flag = flag + 1
-                if flag == 2:
-                    # date became today, save current results
-                    db.update_db(results)
-                    print(self.date_stream, "csv updated")
-
-                elif flag == 3:
-                    # date became future, save unarchived streams only
-                    db.update_db(
-                        [result for result in results if result["Tag"] == "unarchive"]
-                    )
-                    print(self.date_stream, "csv updated - unarchived stream")
-
-                elif flag > 3:
-                    break
+                stream.check_update(self.date_count, results)
 
             schedules = container.find_all("a", {"class": "thumbnail"})
             for i in range(0, len(schedules)):
@@ -142,8 +142,40 @@ class stream:
 
 # Saving stream details for future uses
 class db:
-    def update_db(results):
+    def get_date(flag):
+        date = datetime.today()
+        if flag == 2:
+            date = date - timedelta(1)
+        return date.strftime("%m/%d")
+
+    def check_dup(results, flag_date):
+        # read date compare time as unique ID to check duplicate
+        date_tbc = db.get_date(flag_date)
+        with open("Hololive_stream_db.csv", "r", encoding="UTF-8") as f_object:
+            read_object = csv.DictReader(f_object, delimiter=",")
+            db_streams = [d for d in read_object if d["\ufeffDate"] == date_tbc]
+            f_object.close()
+
+        new_streams = []
+        for i in range(0, len(db_streams)):
+            db_streams[i]["Time"] = db_streams[i]["Time"].zfill(5)
+
+        for result in results:
+            result["Time"] = result["Time"].zfill(5)
+            flag_duplicate = True
+            for db_stream in db_streams:
+                if result["Time"] == db_stream["Time"]:
+                    flag_duplicate = False
+                    db_streams.remove(db_stream)
+                    break
+            if flag_duplicate:
+                new_streams.append(result)
+
+        return new_streams
+
+    def update_db(results, flag_date):
         field_names = ["Date", "Streamer", "Time", "Title", "Tag"]
+        results = db.check_dup(results, flag_date)
         try:
             with open(
                 "Hololive_stream_db.csv", "a", encoding="UTF-8", newline=""
@@ -153,19 +185,19 @@ class db:
                 )
                 writer_object.writerows(results)
                 f_object.close()
+            if results:
+                print(f"----------------DB succesfully updated({{len(results)}})")
+            else:
+                print("--------------update not required")
         except:
             print("Failed to update DB")
 
 
 # -------------------------------------------
 
-"""
-# test
-t1 = stream().search_stream()
 
-for t2 in t1:
-    print(t2)
-"""
+# test
+# t1 = stream().search_stream()
 
 
 # flask
