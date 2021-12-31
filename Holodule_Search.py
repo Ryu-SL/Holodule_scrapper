@@ -40,7 +40,7 @@ class stream:
     def check_singing(self, title, tags):
         for tag in tags:
             if tag in title:
-                stream.check_tag(self, title, tag)
+                stream.check_tag(self, tag, title)
                 return True
         return False
 
@@ -186,7 +186,7 @@ class db:
                 writer_object.writerows(results)
                 f_object.close()
             if results:
-                print(f"----------------DB succesfully updated({{len(results)}})")
+                print(f"----------------DB succesfully updated({len(results)} streams)")
             else:
                 print("--------------update not required")
         except:
