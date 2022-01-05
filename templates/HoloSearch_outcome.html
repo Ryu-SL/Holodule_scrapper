@@ -8,6 +8,12 @@
 				gap: 10px;
 				grid-template-columns: repeat(5, 1fr);
 			}
+			.Title_tag{
+				display: none;
+			}
+			.Title:hover + .Title_tag{
+				display: block;
+			}
 		</style>
 	</head>
 	<body>
@@ -19,14 +25,35 @@
 			<h4>Date</h4>
 			<h4>Time</h4>
 			<h4>Thumbnail(Link)</h4>
-			{% for stream in lists%}
-				<span>{{stream.Title}}</span>
-				<span>{{stream.Streamer}}</span>
-				<span>{{stream.Date}}</span>
-				<span>{{stream.Time}}</span>
-				<a href="{{stream.Url}}" target="_blank"><img src="{{stream.Thumb}}"/></a>
+			{% for i in range(0,resultNo)%}
+				<div>
+					<span class="Title">{{lists[i].Title}}</span>
+					<span class="Title_tag" style.display="none">searched tag: {{lists[i].Tag}}</span>
+				</div>
+				<div onclick="show_tag_collab({{i}})">
+					<span>{{lists[i].Streamer}}</span>
+					{% if lists[i].Tag=="collab" %}
+						<br>
+						<span id="{{i}}">{{lists[i].Collab}}</span>
+					{% endif %}
+				</div>
+				
+				<span>{{lists[i].Date}}</span>
+				<span>{{lists[i].Time}}</span>
+				<a href="{{lists[i].Url}}" target="_blank"><img src="{{lists[i].Thumb}}"/></a>
 			{% endfor %}
 		<section>
+		<script>
+			function show_tag_collab(i) {
+				var tag=document.getElementById(i)
+				if(tag.style.display==="none"){
+					tag.style.display="block";
+				}else{
+					tag.style.display="none";
+				}
+			}
+		</script>
+		
 	</body>
 </html>
 

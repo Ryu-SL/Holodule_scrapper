@@ -1,32 +1,44 @@
 import requests
 from bs4 import BeautifulSoup
-from flask import Flask, render_template
+from flask import Flask, render_template, request
 import csv
 from datetime import datetime, timedelta
 
+KEY_HOLOMEM = {
+    "irys": "https://yt3.ggpht.com/UwxlX1PuB_RwJyEUW_ofbBR6saY8n5_p8A9_1bY65zygFrfqIb1GM8dIK33EJboDDnRVyw=s176-c-k-c0x00ffffff-no-rj",
+    "pekora": "https://yt3.ggpht.com/a/AGF-l783JgU1dmBOzvsmUfnbMLLOD1c0Gvuo7TKiVw=s88-c-k-c0xffffffff-no-rj-mo",
+    "mio": "https://yt3.ggpht.com/a/AGF-l78s_0WRnL7hthbRZPmmLSKSCKsxM2DI9FXyAQ=s88-c-k-c0xffffffff-no-rj-mo",
+    "sora": "https://yt3.ggpht.com/a/AGF-l79dHleIBmBtLP2TfcmFpIJjmH7fa8tfG1qTKg=s88-c-k-c0xffffffff-no-rj-mo",
+    "luna": "https://yt3.ggpht.com/a/AGF-l7-xWfYjQX1VHU2i1BuIap0Ba3tR3T6w4dcCkA=s88-c-k-c0xffffffff-no-rj-mo",
+}
 
-# --------------search streams meeting criteria---------------
+
 class stream:
-    def __init__(self):
+    """search streams meeting criteria"""
+
+    def __init__(self, search_title, search_members):
         self.main_url = "https://schedule.hololive.tv/"
         self.tags_lc = ["sing", "karaoke", "歌", "カラオケ", "cover"]
         self.tags_uc = ["Live", "3D LIVE"]
-        self.tags_streamer = {
-            "https://yt3.ggpht.com/UwxlX1PuB_RwJyEUW_ofbBR6saY8n5_p8A9_1bY65zygFrfqIb1GM8dIK33EJboDDnRVyw=s176-c-k-c0x00ffffff-no-rj": "irys",
-            "https://yt3.ggpht.com/a/AGF-l783JgU1dmBOzvsmUfnbMLLOD1c0Gvuo7TKiVw=s88-c-k-c0xffffffff-no-rj-mo": "pekora",
-            "https://yt3.ggpht.com/a/AGF-l78s_0WRnL7hthbRZPmmLSKSCKsxM2DI9FXyAQ=s88-c-k-c0xffffffff-no-rj-mo": "mio",
-            "https://yt3.ggpht.com/a/AGF-l79dHleIBmBtLP2TfcmFpIJjmH7fa8tfG1qTKg=s88-c-k-c0xffffffff-no-rj-mo": "sora",
-            "https://yt3.ggpht.com/a/AGF-l7-xWfYjQX1VHU2i1BuIap0Ba3tR3T6w4dcCkA=s88-c-k-c0xffffffff-no-rj-mo": "luna",
-        }
         self.date_stream = "m/d"
         self.date_count = 0
         self.tag_stream = "sing"
+        self.tag_collab_member = []
+
+        self.search_title = False
+        if search_title != "":
+            self.search_title = [search_title]
+
+        self.search_members = {}
+        for search_member in search_members:
+            self.search_members[search_member] = KEY_HOLOMEM[search_member]
 
     @staticmethod
     def make_soup(url):
         return BeautifulSoup(requests.get(url).text, "html.parser")
 
     def check_tag(self, tag, title):
+
         if "unarchive" in title:
             tag_stream = "unarchive"
         elif "cover" in title:
@@ -35,24 +47,29 @@ class stream:
             tag_stream = "live"
         else:
             tag_stream = "sing"
+
         self.tag_stream = tag_stream
 
-    def check_singing(self, title, tags):
+    def check_title(self, title, tags):
         for tag in tags:
             if tag in title:
                 stream.check_tag(self, tag, title)
                 return True
         return False
 
-    def check_collab(self, streamers, selected_streamers):
+    def check_collab(self, streamers):
+        # if selected member is host of collab it won't be picked up as youtube subscription will notify
+        flag = False
         try:
             for streamer in streamers[3:]:
-                if streamer["src"] in selected_streamers:
-                    self.tag_stream = "collab"
-                    return True
+                for selected_streamer in self.search_members:
+                    if streamer["src"] == selected_streamer.value():
+                        self.tag_stream = "collab"
+                        self.tag_collab_member.append(selected_streamer.key())
+                        flag = True
         except:
             None
-        return False
+        return flag
 
     def get_title(self, stream_url, streamers):
         soup = self.make_soup(stream_url)
@@ -60,10 +77,16 @@ class stream:
             "meta", {"itemprop": "name"}
         )
         title = str(title).split('"')[1]
+        self.tag_collab_member = []
 
-        if not stream.check_singing(self, title.lower(), self.tags_lc):
-            if not stream.check_singing(self, title, self.tags_uc):
-                if not stream.check_collab(self, streamers, self.tags_streamer):
+        if self.search_title:
+            if stream.check_title(self, title.lower(), self.search_title):
+                self.tag_stream = "other"
+                return title
+
+        if not stream.check_title(self, title.lower(), self.tags_lc):
+            if not stream.check_title(self, title, self.tags_uc):
+                if not stream.check_collab(self, streamers):
                     return False
 
         return title
@@ -128,6 +151,7 @@ class stream:
                             .find("div", {"class", "name"})
                             .string.strip(),
                             "Tag": self.tag_stream,
+                            "Collab": self.tag_collab_member,
                         }
                     )
                 else:
@@ -136,12 +160,21 @@ class stream:
 
         return results
 
+    # -------------------------------------------
 
-# -------------------------------------------
+    """
+    #potential filter words:
+    -s'ing' terms
+        cros'sing'
+        progres'sing'
+    
+    """
 
 
-# Saving stream details for future uses
+# -----------------------------------------------
 class db:
+    """Saving stream details for future uses"""
+
     def get_date(flag):
         date = datetime.today()
         if flag == 2:
@@ -170,11 +203,11 @@ class db:
                     break
             if flag_duplicate:
                 new_streams.append(result)
-
         return new_streams
 
     def update_db(results, flag_date):
         field_names = ["Date", "Streamer", "Time", "Title", "Tag"]
+        results = [d for d in results if d["Tag"] != "other"]
         results = db.check_dup(results, flag_date)
         try:
             with open(
@@ -187,6 +220,7 @@ class db:
                 f_object.close()
             if results:
                 print(f"----------------DB succesfully updated({len(results)} streams)")
+                # maybe show something on main.html as well?
             else:
                 print("--------------update not required")
         except:
@@ -198,7 +232,7 @@ class db:
 
 # test
 # t1 = stream().search_stream()
-
+# streams = [{"Thumb": "https://img.youtube.com/vi/8oJnlp4cjsk/mqdefault.jpg","Url": "https://www.youtube.com/watch?v=8oJnlp4cjsk","Title": "【歌枠】","Date": "01/04","Time": "22:03","Streamer": "夜空メル","Tag": "sing","Collab": [],}]
 
 # flask
 app = Flask("Holodule Search")
@@ -209,9 +243,14 @@ def search_home():
     return render_template("HoloSearch_main.html")
 
 
-@app.route("/report", methods=["POST"])
+@app.route("/report", methods=["GET", "POST"])
 def show_outcome():
-    streams = stream().search_stream()
+    if request.method == "POST":
+        search_title = request.form.get("title").strip()
+        search_member = request.form.getlist("member")
+    streams = stream(
+        search_title=search_title, search_members=search_member
+    ).search_stream()
     return render_template(
         "HoloSearch_outcome.html", resultNo=len(streams), lists=streams
     )
