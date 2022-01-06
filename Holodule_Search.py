@@ -62,10 +62,10 @@ class stream:
         flag = False
         try:
             for streamer in streamers[3:]:
-                for selected_streamer in self.search_members:
-                    if streamer["src"] == selected_streamer.value():
+                for selected_streamer, selected_src in self.search_members.items():
+                    if streamer["src"] == selected_src:
                         self.tag_stream = "collab"
-                        self.tag_collab_member.append(selected_streamer.key())
+                        self.tag_collab_member.append(selected_streamer)
                         flag = True
         except:
             None
@@ -167,13 +167,14 @@ class stream:
     -s'ing' terms
         cros'sing'
         progres'sing'
-    
+    'Live' shows
+        live drawing
     """
 
 
 # -----------------------------------------------
 class db:
-    """Saving stream details for future uses"""
+    """Saving singing stream details for future uses"""
 
     def get_date(flag):
         date = datetime.today()
@@ -207,7 +208,7 @@ class db:
 
     def update_db(results, flag_date):
         field_names = ["Date", "Streamer", "Time", "Title", "Tag"]
-        results = [d for d in results if d["Tag"] != "other"]
+        results = [d for d in results if d["Tag"] != "other" and d["Tag"] != "collab"]
         results = db.check_dup(results, flag_date)
         try:
             with open(
@@ -228,7 +229,6 @@ class db:
 
 
 # -------------------------------------------
-
 
 # test
 # t1 = stream().search_stream()
