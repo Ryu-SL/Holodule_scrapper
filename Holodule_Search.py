@@ -14,12 +14,13 @@ KEY_HOLOMEM = {
 
 
 class stream:
-    """search streams meeting criteria"""
+    """search streams meeting criteria from holodule"""
 
     def __init__(self, search_title, search_members):
         self.main_url = "https://schedule.hololive.tv/"
-        self.tags_lc = ["sing", "karaoke", "歌", "カラオケ", "cover"]
-        self.tags_uc = ["Live", "3D LIVE"]
+        self.tags_lc = ["sing", "karaoke", "歌", "カラオケ"]
+        self.tags_uc = ["Live", "【LIVE", "LIVE【", "3DLIVE"]
+        self.tags_mv = ["cover", "MV", "mv】", "COVER"]
         self.date_stream = "m/d"
         self.date_count = 0
         self.tag_stream = "sing"
@@ -38,13 +39,12 @@ class stream:
         return BeautifulSoup(requests.get(url).text, "html.parser")
 
     def check_tag(self, tag, title):
-
-        if "unarchive" in title:
+        if "archive" in title:
             tag_stream = "unarchive"
-        elif "cover" in title:
-            tag_stream = "cover"
         elif "L" in tag:
             tag_stream = "live"
+        elif "C" in tag or "M" in tag or "歌ってみた" in title:
+            tag_stream = "cover"
         else:
             tag_stream = "sing"
 
@@ -53,7 +53,7 @@ class stream:
     def check_title(self, title, tags):
         for tag in tags:
             if tag in title:
-                stream.check_tag(self, tag, title)
+                stream.check_tag(self, tag.upper(), title)
                 return True
         return False
 
@@ -84,19 +84,26 @@ class stream:
                 self.tag_stream = "other"
                 return title
 
+        if "superchat" in title.lower() or "スパチャ" in title or "after" in title.lower():
+            return False
+
         if not stream.check_title(self, title.lower(), self.tags_lc):
-            if not stream.check_title(self, title, self.tags_uc):
-                if not stream.check_collab(self, streamers):
-                    return False
+            if not stream.check_title(self, title.replace(" ", ""), self.tags_uc):
+                if not stream.check_title(self, title, self.tags_mv):
+                    if not stream.check_collab(self, streamers):
+                        return False
 
         return title
 
     def get_details(self, soup):
         stream_url = soup["href"]
         if "youtube" in stream_url:
-            stream_title = stream.get_title(self, stream_url, soup.find_all("img"))
-            if stream_title:
-                return (stream_url, stream_title)
+            try:
+                stream_title = stream.get_title(self, stream_url, soup.find_all("img"))
+                if stream_title:
+                    return (stream_url, stream_title)
+            except:
+                pass
         return False
 
     def check_date(self, soup):
@@ -110,7 +117,6 @@ class stream:
 
     @staticmethod
     def check_update(flag, results):
-        # flag = 0  # do not update db
         if flag == 2:
             # date became today, save current results
             print("------------------updating csv")
@@ -167,8 +173,12 @@ class stream:
     -s'ing' terms
         cros'sing'
         progres'sing'
+    
     'Live' shows
         live drawing
+    
+    streamer name including tag:
+        '歌'衣メイカ
     """
 
 
