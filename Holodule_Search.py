@@ -25,6 +25,7 @@ class stream:
         self.date_count = 0
         self.tag_stream = "sing"
         self.tag_collab_member = []
+        self.tag_filter=["superchat","スパチャ","after","closing","振り返り"]
 
         self.search_title = False
         if search_title != "":
@@ -84,7 +85,7 @@ class stream:
                 self.tag_stream = "other"
                 return title
 
-        if "superchat" in title.lower() or "スパチャ" in title or "after" in title.lower():
+        if stream.check_title(self,title.lower(),self.tag_filter):
             return False
 
         if not stream.check_title(self, title.lower(), self.tags_lc):
