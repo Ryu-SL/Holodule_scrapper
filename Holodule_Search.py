@@ -20,12 +20,12 @@ class stream:
         self.main_url = "https://schedule.hololive.tv/"
         self.tags_lc = ["sing", "karaoke", "歌", "カラオケ"]
         self.tags_uc = ["Live", "【LIVE", "LIVE【", "3DLIVE"]
-        self.tags_mv = ["cover", "MV", "mv】", "COVER"]
+        self.tags_mv = ["cover", "MV", "mv】", "COVER","song"]
         self.date_stream = "m/d"
         self.date_count = 0
         self.tag_stream = "sing"
         self.tag_collab_member = []
-        self.tag_filter=["superchat","スパチャ","after","closing","振り返り"]
+        self.tag_filter=["superchat","スパチャ","after","closing","振り返り","draw","後夜祭","missing","short"]
 
         self.search_title = False
         if search_title != "":
