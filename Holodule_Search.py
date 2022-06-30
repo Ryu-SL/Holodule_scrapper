@@ -20,12 +20,24 @@ class stream:
         self.main_url = "https://schedule.hololive.tv/"
         self.tags_lc = ["sing", "karaoke", "歌", "カラオケ"]
         self.tags_uc = ["Live", "【LIVE", "LIVE【", "3DLIVE"]
-        self.tags_mv = ["cover", "MV", "mv】", "COVER","song"]
+        self.tags_mv = ["MV", "ORIGINAL", "COVER", "SONG"]
         self.date_stream = "m/d"
         self.date_count = 0
         self.tag_stream = "sing"
         self.tag_collab_member = []
-        self.tag_filter=["superchat","スパチャ","after","closing","振り返り","draw","後夜祭","missing","short"]
+        self.tag_filter = [
+            "superchat",
+            "スパチャ",
+            "after",
+            "closing",
+            "振り返り",
+            "draw",
+            "後夜祭",
+            "感想会",
+            "missing",
+            "crossing",
+            "short",
+        ]
 
         self.search_title = False
         if search_title != "":
@@ -85,12 +97,12 @@ class stream:
                 self.tag_stream = "other"
                 return title
 
-        if stream.check_title(self,title.lower(),self.tag_filter):
+        if stream.check_title(self, title.lower(), self.tag_filter):
             return False
 
         if not stream.check_title(self, title.lower(), self.tags_lc):
             if not stream.check_title(self, title.replace(" ", ""), self.tags_uc):
-                if not stream.check_title(self, title, self.tags_mv):
+                if not stream.check_title(self, title.upper(), self.tags_mv):
                     if not stream.check_collab(self, streamers):
                         return False
 
@@ -122,8 +134,9 @@ class stream:
             # date became today, save current results
             print("------------------updating csv")
             db.update_db(results, flag)
-
-        elif flag == 3:
+        return None
+        #'unarcive' probably overweight for ML, may have to remove from db.
+        if fla7g == 3:
             # date became future, save unarchived streams only
             print("-----------------updating unarchived stream")
             db.update_db(
