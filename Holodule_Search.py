@@ -5,13 +5,13 @@ import csv
 from datetime import datetime, timedelta
 
 KEY_HOLOMEM = {
-    "irys": "https://yt3.ggpht.com/UwxlX1PuB_RwJyEUW_ofbBR6saY8n5_p8A9_1bY65zygFrfqIb1GM8dIK33EJboDDnRVyw=s176-c-k-c0x00ffffff-no-rj",
+    "irys": "https://yt3.ggpht.com/oC30wBZ04ibFN7AQVHAjdUX-3nS-h4DDjJBYVlsKt0OF6t1CZwrgzWlr3rS6Q12kXrw3-mt9gg=s176-c-k-c0x00ffffff-no-rj",
     "pekora": "https://yt3.ggpht.com/a/AGF-l783JgU1dmBOzvsmUfnbMLLOD1c0Gvuo7TKiVw=s88-c-k-c0xffffffff-no-rj-mo",
     "mio": "https://yt3.ggpht.com/a/AGF-l78s_0WRnL7hthbRZPmmLSKSCKsxM2DI9FXyAQ=s88-c-k-c0xffffffff-no-rj-mo",
     "sora": "https://yt3.ggpht.com/a/AGF-l79dHleIBmBtLP2TfcmFpIJjmH7fa8tfG1qTKg=s88-c-k-c0xffffffff-no-rj-mo",
     "luna": "https://yt3.ggpht.com/a/AGF-l7-xWfYjQX1VHU2i1BuIap0Ba3tR3T6w4dcCkA=s88-c-k-c0xffffffff-no-rj-mo",
 }
-
+#"irys_old": "https://yt3.ggpht.com/UwxlX1PuB_RwJyEUW_ofbBR6saY8n5_p8A9_1bY65zygFrfqIb1GM8dIK33EJboDDnRVyw=s176-c-k-c0x00ffffff-no-rj"
 
 class stream:
     """search streams meeting criteria from holodule"""
@@ -19,7 +19,7 @@ class stream:
     def __init__(self, search_title, search_members):
         self.main_url = "https://schedule.hololive.tv/"
         self.tags_lc = ["sing", "karaoke", "歌", "カラオケ"]
-        self.tags_uc = ["Live", "【LIVE", "LIVE【", "3DLIVE"]
+        self.tags_uc = ["Live", "【LIVE", "LIVE【", "3DLIVE","Concert"]
         self.tags_mv = ["MV", "ORIGINAL", "COVER", "SONG"]
         self.date_stream = "m/d"
         self.date_count = 0
@@ -28,14 +28,7 @@ class stream:
         self.tag_filter = [
             "superchat",
             "スパチャ",
-            "after",
-            "closing",
-            "振り返り",
             "draw",
-            "後夜祭",
-            "感想会",
-            "missing",
-            "crossing",
             "short",
         ]
 
@@ -101,7 +94,7 @@ class stream:
             return False
 
         if not stream.check_title(self, title.lower(), self.tags_lc):
-            if not stream.check_title(self, title.replace(" ", ""), self.tags_uc):
+            if not stream.check_title(self, title, self.tags_uc):
                 if not stream.check_title(self, title.upper(), self.tags_mv):
                     if not stream.check_collab(self, streamers):
                         return False
@@ -134,9 +127,12 @@ class stream:
             # date became today, save current results
             print("------------------updating csv")
             db.update_db(results, flag)
-        return None
-        #'unarcive' probably overweight for ML, may have to remove from db.
-        if fla7g == 3:
+            return False
+        
+        
+        if flag == 3:
+            return True
+            #'unarchive' probably overweight cetain words for ML, may have to remove from db.
             # date became future, save unarchived streams only
             print("-----------------updating unarchived stream")
             db.update_db(
@@ -153,7 +149,8 @@ class stream:
         stream_count = 0
         for container in containers:
             if stream.check_date(self, container):
-                stream.check_update(self.date_count, results)
+                if(stream.check_update(self.date_count, results)):
+                    break
 
             schedules = container.find_all("a", {"class": "thumbnail"})
             for i in range(0, len(schedules)):
