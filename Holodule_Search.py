@@ -1,3 +1,4 @@
+from pickle import FALSE
 import requests
 from bs4 import BeautifulSoup
 from flask import Flask, render_template, request
@@ -85,30 +86,31 @@ class stream:
         )
         title = str(title).split('"')[1]
         self.tag_collab_member = []
+        search_flag=True
+        while True:   
+            if self.search_title:
+                if stream.check_title(self, title.lower(), self.search_title):
+                    self.tag_stream = "other"
+                    break
 
-        if self.search_title:
-            if stream.check_title(self, title.lower(), self.search_title):
-                self.tag_stream = "other"
-                return title
+            if stream.check_title(self, title.lower(), self.tag_filter):
+                break
 
-        if stream.check_title(self, title.lower(), self.tag_filter):
-            return False
+            if not stream.check_title(self, title.lower(), self.tags_lc):
+                if not stream.check_title(self, title, self.tags_uc):
+                    if not stream.check_title(self, title.upper(), self.tags_mv):
+                        if not stream.check_collab(self, streamers):
+                            search_flag=False
+            break
 
-        if not stream.check_title(self, title.lower(), self.tags_lc):
-            if not stream.check_title(self, title, self.tags_uc):
-                if not stream.check_title(self, title.upper(), self.tags_mv):
-                    if not stream.check_collab(self, streamers):
-                        return False
-
-        return title
+        return title, search_flag
 
     def get_details(self, soup):
         stream_url = soup["href"]
         if "youtube" in stream_url:
             try:
-                stream_title = stream.get_title(self, stream_url, soup.find_all("img"))
-                if stream_title:
-                    return (stream_url, stream_title)
+                stream_title, search_flag = stream.get_title(self, stream_url, soup.find_all("img"))
+                return (stream_url, stream_title, search_flag)
             except:
                 pass
         return False
@@ -123,11 +125,12 @@ class stream:
             return False
 
     @staticmethod
-    def check_update(flag, results):
+    def check_update(flag, results,results_raw):
         if flag == 2:
             # date became today, save current results
             print("------------------updating csv")
             db.update_db(results, flag)
+            db.update_db(results_raw, False)
             return False
         
         
@@ -142,6 +145,7 @@ class stream:
 
     def search_stream(self):
         results = []
+        results_raw = []
         soup = self.make_soup(self.main_url)
         containers = soup.find("div", {"id": "all"}).find_all(
             "div", {"class": "container"}
@@ -150,30 +154,42 @@ class stream:
         stream_count = 0
         for container in containers:
             if stream.check_date(self, container):
-                if(stream.check_update(self.date_count, results)):
+                if(stream.check_update(self.date_count, results,results_raw)):
                     break
 
             schedules = container.find_all("a", {"class": "thumbnail"})
             for i in range(0, len(schedules)):
                 result = stream.get_details(self, schedules[i])
                 if result:
-                    print(result[1])
-                    results.append(
+                    result_Time=schedules[i].find("img").nextSibling.strip()
+                    result_Streamer=schedules[i].find("div", {"class", "name"}).string.strip()
+                    results_raw.append(
                         {
-                            "Thumb": schedules[i].find_all("img")[1]["src"],
-                            "Url": result[0],
                             "Title": result[1],
                             "Date": self.date_stream,
-                            "Time": schedules[i].find("img").nextSibling.strip(),
-                            "Streamer": schedules[i]
-                            .find("div", {"class", "name"})
-                            .string.strip(),
-                            "Tag": self.tag_stream,
-                            "Collab": self.tag_collab_member,
+                            "Time": result_Time,
+                            "Streamer": result_Streamer,
+                            "Tag": "",
                         }
                     )
+                    if result[2]:
+                        print(result[1])
+                        results.append(
+                            {
+                                "Thumb": schedules[i].find_all("img")[1]["src"],
+                                "Url": result[0],
+                                "Title": result[1],
+                                "Date": self.date_stream,
+                                "Time": result_Time,
+                                "Streamer": result_Streamer,
+                                "Tag": self.tag_stream,
+                                "Collab": self.tag_collab_member,
+                            }
+                        )
+                    else:
+                        print(stream_count + i + 1, "stream")
                 else:
-                    print(stream_count + i + 1, "stream")
+                    print("this one is Adv")
             stream_count = stream_count + len(schedules)
 
         return results
@@ -204,10 +220,13 @@ class db:
             date = date - timedelta(1)
         return date.strftime("%m/%d")
 
-    def check_dup(results, flag_date):
+    def check_dup(results, flag_date, db_name):
         # read date compare time as unique ID to check duplicate
-        date_tbc = db.get_date(flag_date)
-        with open("Hololive_stream_db.csv", "r", encoding="UTF-8") as f_object:
+        
+        #date_tbc = db.get_date(flag_date)
+        date_tbc=db.get_date(2)
+        
+        with open(db_name, "r", encoding="UTF-8") as f_object:
             read_object = csv.DictReader(f_object, delimiter=",")
             db_streams = [d for d in read_object if d["\ufeffDate"] == date_tbc]
             f_object.close()
@@ -229,12 +248,22 @@ class db:
         return new_streams
 
     def update_db(results, flag_date):
+        db_name=""
+        if flag_date:
+            results = [df for df in results if df["Tag"] != "other" and df["Tag"] != "collab"]
+            db_name="Hololive_stream_db.csv"
+        else:
+            db_name="Hololive_stream_db_raw.csv"
+        
+        results=db.check_dup(results,flag_date,db_name)
+        db.append_list(results,db_name)
+        
+
+    def append_list(results,db_name):
         field_names = ["Date", "Streamer", "Time", "Title", "Tag"]
-        results = [d for d in results if d["Tag"] != "other" and d["Tag"] != "collab"]
-        results = db.check_dup(results, flag_date)
         try:
             with open(
-                "Hololive_stream_db.csv", "a", encoding="UTF-8", newline=""
+                db_name, "a", encoding="UTF-8", newline=""
             ) as f_object:
                 writer_object = csv.DictWriter(
                     f_object, fieldnames=field_names, extrasaction="ignore"
@@ -248,7 +277,6 @@ class db:
                 print("--------------update not required")
         except:
             print("Failed to update DB")
-
 
 # -------------------------------------------
 
